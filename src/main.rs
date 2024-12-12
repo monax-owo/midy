@@ -6,7 +6,7 @@ use std::{
 };
 
 use device_query::{DeviceEvents, DeviceState, Keycode};
-use midir::{MidiIO, MidiInput, MidiOutput};
+use midir::{MidiIO, MidiInput, MidiInputPort, MidiOutput};
 
 fn main() {
   println!("Hello, world!");
@@ -20,9 +20,22 @@ fn run() -> Result<(), Box<dyn Error>> {
   let device_state = DeviceState::new();
   let _key_map = HashMap::<Keycode, u32>::new();
 
+  let midi_input = MidiInput::new("in")?;
+  for in_port in midi_input.ports() {
+    println!("in ports: {:?}", in_port.id());
+    stdout().flush()?;
+  }
+  let port_input = select_port(&midi_input, "in")?;
+  let _connect_input = midi_input.connect(
+    &port_input,
+    "in",
+    |num, data, _| println!("{} data: {:?}", num, data),
+    (),
+  )?;
+
   let midi_output = MidiOutput::new("out")?;
   for out_port in midi_output.ports() {
-    println!("2 ports: {:?}", out_port.id());
+    println!("out ports: {:?}", out_port.id());
     stdout().flush()?;
   }
   let port_output = select_port(&midi_output, "out")?;
