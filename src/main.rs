@@ -2,11 +2,15 @@ use std::{
   collections::HashMap,
   error::Error,
   io::{stdin, stdout, Write},
+  ops::DerefMut,
   sync::{Arc, Mutex},
 };
 
 use device_query::{DeviceEvents, DeviceState, Keycode};
-use midir::{MidiIO, MidiInput, MidiOutput};
+use midir::{MidiIO, MidiInput, MidiOutput, MidiOutputConnection};
+
+const NOTE_ON_MSG: u8 = 0x90;
+const NOTE_OFF_MSG: u8 = 0x80;
 
 fn main() {
   println!("Hello, world!");
@@ -18,7 +22,25 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn Error>> {
   let device_state = DeviceState::new();
-  let _key_map = HashMap::<Keycode, u32>::new();
+  let key_map = HashMap::<Keycode, u8>::from_iter([
+    (Keycode::A, 60),
+    (Keycode::W, 61),
+    (Keycode::S, 62),
+    (Keycode::E, 63),
+    (Keycode::D, 64),
+    (Keycode::F, 65),
+    (Keycode::T, 66),
+    (Keycode::G, 67),
+    (Keycode::Y, 68),
+    (Keycode::H, 69),
+    (Keycode::U, 70),
+    (Keycode::J, 71),
+    (Keycode::K, 72),
+    (Keycode::O, 73),
+    (Keycode::L, 74),
+    (Keycode::P, 75),
+    (Keycode::Semicolon, 76),
+  ]);
 
   let midi_input = MidiInput::new("in")?;
   for in_port in midi_input.ports() {
@@ -39,30 +61,26 @@ fn run() -> Result<(), Box<dyn Error>> {
     stdout().flush()?;
   }
   let port_output = select_port(&midi_output, "out")?;
-  let connect_output = midi_output.connect(&port_output, "out")?;
+  let connect_output = midi_output.connect(&port_output, "0")?;
 
-  let arc_output = Arc::new(Mutex::new(connect_output));
-  let _guard_output = device_state.on_key_down({
-    let arc = Arc::clone(&arc_output);
+  let arc_resources = Arc::new((Mutex::new(connect_output), key_map));
+  let _guard = device_state.on_key_down({
+    let arc = Arc::clone(&arc_resources);
 
     move |key_code| {
       println!("key_down: {:?}", key_code);
-      let mut arc = arc.lock().unwrap();
-      if let Keycode::F = key_code {
-        arc.send(&[144, 60, 100]).unwrap();
-      }
+      let mut lock = arc.0.lock().unwrap();
+      send(NOTE_ON_MSG, lock.deref_mut(), key_code, &arc.1).unwrap();
     }
   });
 
   let _guard = device_state.on_key_up({
-    let arc = Arc::clone(&arc_output);
+    let arc = Arc::clone(&arc_resources);
 
     move |key_code| {
       println!("key_up: {:?}", key_code);
-      let mut arc = arc.lock().unwrap();
-      if let Keycode::F = key_code {
-        arc.send(&[0x80, 60, 100]).unwrap();
-      }
+      let mut lock = arc.0.lock().unwrap();
+      send(NOTE_OFF_MSG, lock.deref_mut(), key_code, &arc.1).unwrap();
     }
   });
   loop {}
@@ -84,4 +102,18 @@ fn select_port<T: MidiIO>(midi_io: &T, desc: &str) -> Result<T::Port, Box<dyn Er
     .get(input.trim().parse::<usize>()?)
     .ok_or("Invalid port number")?;
   Ok(port.clone())
+}
+
+fn send(
+  msg: u8,
+  midi_output: &mut MidiOutputConnection,
+  key_code: &Keycode,
+  key_map: &HashMap<Keycode, u8>,
+) -> Result<(), Box<dyn Error>> {
+  for (key_map_code, note) in key_map.into_iter() {
+    if std::mem::discriminant(key_code) == std::mem::discriminant(key_map_code) {
+      midi_output.send(&[msg, *note, 100])?;
+    }
+  }
+  Ok(())
 }
