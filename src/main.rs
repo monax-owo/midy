@@ -21,15 +21,14 @@ fn run() -> Result<(), Box<dyn Error>> {
   let _key_map = HashMap::<Keycode, u32>::new();
 
   let midi_output = MidiOutput::new("out")?;
-  for port in midi_output.ports() {
-    println!("2 ports: {:?}", port.id());
+  for out_port in midi_output.ports() {
+    println!("2 ports: {:?}", out_port.id());
     stdout().flush()?;
   }
   let port_output = select_port(&midi_output, "out")?;
-  println!("test: {:?}", port_output.id());
   let connect_output = midi_output.connect(&port_output, "out")?;
-  let arc_output = Arc::new(Mutex::new(connect_output));
 
+  let arc_output = Arc::new(Mutex::new(connect_output));
   let _guard_output = device_state.on_key_down({
     let arc = Arc::clone(&arc_output);
 
