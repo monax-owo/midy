@@ -6,13 +6,13 @@ use std::{
 };
 
 use device_query::{DeviceEvents, DeviceState, Keycode};
-use midir::{MidiIO, MidiInput, MidiInputPort, MidiOutput};
+use midir::{MidiIO, MidiInput, MidiOutput};
 
 fn main() {
   println!("Hello, world!");
   match run() {
     Ok(()) => (),
-    Err(err) => println!("error: {}", err.to_string()),
+    Err(err) => println!("error: {}", err),
   }
 }
 
