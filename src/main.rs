@@ -1,7 +1,6 @@
 use std::{
   collections::HashMap,
   error::Error,
-  hash::Hash,
   io::{stdin, stdout, Write},
   ops::DerefMut,
   sync::{Arc, Mutex},
@@ -21,14 +20,14 @@ impl NoteKeyMap {
   }
 }
 
-impl Into<HashMap<u8, Keycode>> for NoteKeyMap {
-  fn into(self) -> HashMap<u8, Keycode> {
+impl From<NoteKeyMap> for HashMap<u8, Keycode> {
+  fn from(val: NoteKeyMap) -> Self {
     HashMap::<u8, Keycode>::from_iter(
-      self
+      val
         .key_codes
         .into_iter()
         .enumerate()
-        .map(|v| (v.0 as u8 + self.start, v.1)),
+        .map(|v| (v.0 as u8 + val.start, v.1)),
     )
   }
 }
@@ -167,7 +166,7 @@ fn send(
   key_code: &Keycode,
   key_map: &HashMap<u8, Keycode>,
 ) -> Result<(), Box<dyn Error>> {
-  for (note, key_map_code) in key_map.into_iter() {
+  for (note, key_map_code) in key_map.iter() {
     if std::mem::discriminant(key_code) == std::mem::discriminant(key_map_code) {
       midi_output.send(&[msg, *note, 100])?;
     }
