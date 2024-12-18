@@ -1,6 +1,7 @@
 use std::{
   collections::HashMap,
   error::Error,
+  hash::Hash,
   io::{stdin, stdout, Write},
   ops::DerefMut,
   sync::{Arc, Mutex},
@@ -8,6 +9,29 @@ use std::{
 
 use device_query::{DeviceEvents, DeviceState, Keycode};
 use midir::{MidiIO, MidiInput, MidiOutput, MidiOutputConnection};
+
+struct NoteKeyMap {
+  start: u8,
+  key_codes: Vec<Keycode>,
+}
+
+impl NoteKeyMap {
+  fn new(start: u8, key_codes: Vec<Keycode>) -> Self {
+    Self { start, key_codes }
+  }
+}
+
+impl Into<HashMap<u8, Keycode>> for NoteKeyMap {
+  fn into(self) -> HashMap<u8, Keycode> {
+    HashMap::<u8, Keycode>::from_iter(
+      self
+        .key_codes
+        .into_iter()
+        .enumerate()
+        .map(|v| (v.0 as u8 + self.start, v.1)),
+    )
+  }
+}
 
 const NOTE_ON_MSG: u8 = 0x90;
 const NOTE_OFF_MSG: u8 = 0x80;
@@ -22,25 +46,58 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn Error>> {
   let device_state = DeviceState::new();
-  let key_map = HashMap::<Keycode, u8>::from_iter([
-    (Keycode::A, 60),
-    (Keycode::W, 61),
-    (Keycode::S, 62),
-    (Keycode::E, 63),
-    (Keycode::D, 64),
-    (Keycode::F, 65),
-    (Keycode::T, 66),
-    (Keycode::G, 67),
-    (Keycode::Y, 68),
-    (Keycode::H, 69),
-    (Keycode::U, 70),
-    (Keycode::J, 71),
-    (Keycode::K, 72),
-    (Keycode::O, 73),
-    (Keycode::L, 74),
-    (Keycode::P, 75),
-    (Keycode::Semicolon, 76),
-  ]);
+
+  let key_map: HashMap<u8, Keycode> = {
+    const START: u8 = 36;
+    // TODO: selectable
+
+    // let map = vec![
+    //   Keycode::A,
+    //   Keycode::W,
+    //   Keycode::S,
+    //   Keycode::E,
+    //   Keycode::D,
+    //   Keycode::F,
+    //   Keycode::T,
+    //   Keycode::G,
+    //   Keycode::Y,
+    //   Keycode::H,
+    //   Keycode::U,
+    //   Keycode::J,
+    //   Keycode::K,
+    //   Keycode::O,
+    //   Keycode::L,
+    //   Keycode::P,
+    //   Keycode::Semicolon,
+    // ];
+
+    // let map = vec![
+    //   Keycode::Numpad1,
+    //   Keycode::Numpad2,
+    //   Keycode::Numpad3,
+    //   Keycode::Numpad4,
+    //   Keycode::Numpad5,
+    //   Keycode::Numpad6,
+    //   Keycode::Numpad7,
+    //   Keycode::Numpad8,
+    //   Keycode::Numpad9,
+    //   Keycode::Numpad0,
+    // ];
+
+    let map = vec![
+      Keycode::J,
+      Keycode::K,
+      Keycode::L,
+      Keycode::U,
+      Keycode::I,
+      Keycode::O,
+      Keycode::Key7,
+      Keycode::Key8,
+      Keycode::Key9,
+      Keycode::M,
+    ];
+    NoteKeyMap::new(START, map).into()
+  };
 
   let midi_input = MidiInput::new("in")?;
   for in_port in midi_input.ports() {
@@ -108,9 +165,9 @@ fn send(
   msg: u8,
   midi_output: &mut MidiOutputConnection,
   key_code: &Keycode,
-  key_map: &HashMap<Keycode, u8>,
+  key_map: &HashMap<u8, Keycode>,
 ) -> Result<(), Box<dyn Error>> {
-  for (key_map_code, note) in key_map.into_iter() {
+  for (note, key_map_code) in key_map.into_iter() {
     if std::mem::discriminant(key_code) == std::mem::discriminant(key_map_code) {
       midi_output.send(&[msg, *note, 100])?;
     }
